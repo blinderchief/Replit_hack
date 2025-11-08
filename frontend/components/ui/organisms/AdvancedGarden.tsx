@@ -1,10 +1,10 @@
 'use client'
 
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Stars, Float, Sparkles, MeshReflectorMaterial, ContactShadows, Sky, Cloud, useTexture } from '@react-three/drei'
+import { OrbitControls, Stars, Float, Sparkles, MeshReflectorMaterial, ContactShadows } from '@react-three/drei'
 import { EffectComposer, Bloom, DepthOfField, Vignette, ChromaticAberration, ToneMapping } from '@react-three/postprocessing'
 import { BlendFunction, ToneMappingMode } from 'postprocessing'
-import { useRef, useMemo, useEffect, useState } from 'react'
+import { useRef, useMemo, useEffect, useState, Suspense } from 'react'
 import { Vector3, MathUtils, Color } from 'three'
 import * as THREE from 'three'
 
@@ -655,59 +655,77 @@ function WellnessDisplay({ score }: { score: number }) {
   )
 }
 
-// Dynamic atmosphere based on wellness score
+// Simple animated cloud component
+function SimpleCloud({ position, opacity, color }: { position: [number, number, number], opacity: number, color: Color }) {
+  const meshRef = useRef<THREE.Mesh>(null)
+  
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.position.x = position[0] + Math.sin(state.clock.elapsedTime * 0.1) * 2
+    }
+  })
+  
+  return (
+    <mesh ref={meshRef} position={position}>
+      <sphereGeometry args={[2, 16, 16]} />
+      <meshBasicMaterial color={color} transparent opacity={opacity} />
+    </mesh>
+  )
+}
+
+// Dynamic atmosphere based on wellness score (simplified for stability)
 function DynamicAtmosphere({ wellness_score }: { wellness_score: number }) {
-  const { sunPosition, skyColor, cloudOpacity } = useMemo(() => {
+  const { skyColor, cloudOpacity, fogColor } = useMemo(() => {
     // High wellness = bright sunny day
     if (wellness_score > 70) {
       return {
-        sunPosition: [10, 8, 5] as [number, number, number],
         skyColor: new Color('#87CEEB'),
-        cloudOpacity: 0.3
+        cloudOpacity: 0.15,
+        fogColor: '#B0D4E8'
       }
     }
     // Medium wellness = partly cloudy
     if (wellness_score > 40) {
       return {
-        sunPosition: [8, 6, 5] as [number, number, number],
         skyColor: new Color('#B0C4DE'),
-        cloudOpacity: 0.5
+        cloudOpacity: 0.25,
+        fogColor: '#9AB8D4'
       }
     }
     // Low wellness = overcast but not gloomy
     return {
-      sunPosition: [6, 5, 5] as [number, number, number],
-      skyColor: new Color('#778899'),
-      cloudOpacity: 0.7
+      skyColor: new Color('#98A8B8'),
+      cloudOpacity: 0.35,
+      fogColor: '#7A8A9A'
     }
   }, [wellness_score])
   
   return (
     <>
-      <Sky 
-        sunPosition={sunPosition}
-        turbidity={wellness_score > 70 ? 0.5 : 2}
-        rayleigh={wellness_score > 70 ? 0.2 : 1}
-      />
+      {/* Sky dome */}
+      <mesh>
+        <sphereGeometry args={[100, 32, 32]} />
+        <meshBasicMaterial color={skyColor} side={THREE.BackSide} />
+      </mesh>
+      
+      {/* Fog for depth */}
+      <fog attach="fog" args={[fogColor, 15, 60]} />
       
       {/* Animated clouds */}
-      <Cloud
-        position={[-5, 4, -5]}
-        speed={0.2}
+      <SimpleCloud
+        position={[-5, 8, -15]}
         opacity={cloudOpacity}
-        color={skyColor}
+        color={new Color('#ffffff')}
       />
-      <Cloud
-        position={[5, 5, -8]}
-        speed={0.15}
+      <SimpleCloud
+        position={[5, 10, -20]}
         opacity={cloudOpacity * 0.8}
-        color={skyColor}
+        color={new Color('#ffffff')}
       />
-      <Cloud
-        position={[0, 6, -10]}
-        speed={0.25}
+      <SimpleCloud
+        position={[0, 12, -25]}
         opacity={cloudOpacity * 0.6}
-        color={skyColor}
+        color={new Color('#ffffff')}
       />
     </>
   )
@@ -753,124 +771,126 @@ export function AdvancedGarden({ echoes, wellness_score }: AdvancedGardenProps) 
           toneMappingExposure: 1.2
         }}
       >
-        {/* Enhanced lighting setup */}
-        <ambientLight intensity={0.5} color="#fff8e7" />
-        <directionalLight 
-          position={[10, 12, 8]} 
-          intensity={wellness_score > 70 ? 2 : 1.5} 
-          castShadow
-          shadow-mapSize={[2048, 2048]}
-          shadow-camera-far={50}
-          shadow-camera-left={-10}
-          shadow-camera-right={10}
-          shadow-camera-top={10}
-          shadow-camera-bottom={-10}
-        />
-        <hemisphereLight 
-          args={['#87CEEB', '#3a5a2a', 0.6]} 
-        />
-        <pointLight 
-          position={[0, 5, 0]} 
-          intensity={0.8} 
-          color="#FFE4B5" 
-          distance={15}
-          decay={2}
-        />
-        
-        {/* Dynamic sky and atmosphere */}
-        <DynamicAtmosphere wellness_score={wellness_score} />
-        
-        {/* Distant stars for magical ambiance */}
-        <Stars 
-          radius={100} 
-          depth={50} 
-          count={wellness_score > 70 ? 500 : 300} 
-          factor={wellness_score > 70 ? 3 : 2} 
-          saturation={0.5} 
-          fade 
-          speed={0.5} 
-        />
-        
-        {/* Enhanced garden ground */}
-        <Garden size={10} wellness_score={wellness_score} />
-        
-        {/* Flowers from echoes */}
-        {flowerPositions.map(({ x, z, echo }) => (
-          <ProceduralFlower
-            key={echo.id}
-            position={[x, 0, z]}
-            moodScore={echo.mood_score}
-            emotionTags={echo.emotion_tags}
-            growthStage={echo.growth_stage}
-            seedType={echo.seed_type}
+        <Suspense fallback={null}>
+          {/* Enhanced lighting setup */}
+          <ambientLight intensity={0.5} color="#fff8e7" />
+          <directionalLight 
+            position={[10, 12, 8]} 
+            intensity={wellness_score > 70 ? 2 : 1.5} 
+            castShadow
+            shadow-mapSize={[2048, 2048]}
+            shadow-camera-far={50}
+            shadow-camera-left={-10}
+            shadow-camera-right={10}
+            shadow-camera-top={10}
+            shadow-camera-bottom={-10}
           />
-        ))}
-        
-        {/* Ambient GPU particles (fireflies/pollen) */}
-        <GPUParticleSystem 
-          count={wellness_score > 70 ? 100 : 60} 
-          color={wellness_score > 70 ? "#FFD700" : "#B8E6F0"} 
-        />
-        
-        {/* Wellness score display orb */}
-        <WellnessDisplay score={wellness_score} />
-        
-        {/* Post-processing effects */}
-        <EffectComposer multisampling={4}>
-          {/* Bloom for glowing flowers */}
-          <Bloom
-            intensity={wellness_score > 70 ? 1.5 : 1.0}
-            luminanceThreshold={0.2}
-            luminanceSmoothing={0.9}
-            height={300}
-            opacity={1}
-            blendFunction={BlendFunction.SCREEN}
+          <hemisphereLight 
+            args={['#87CEEB', '#3a5a2a', 0.6]} 
+          />
+          <pointLight 
+            position={[0, 5, 0]} 
+            intensity={0.8} 
+            color="#FFE4B5" 
+            distance={15}
+            decay={2}
           />
           
-          {/* Depth of field for cinematic focus */}
-          <DepthOfField
-            focusDistance={0.02}
-            focalLength={0.05}
-            bokehScale={wellness_score > 70 ? 3 : 2}
-            height={480}
+          {/* Dynamic sky and atmosphere */}
+          <DynamicAtmosphere wellness_score={wellness_score} />
+          
+          {/* Distant stars for magical ambiance */}
+          <Stars 
+            radius={100} 
+            depth={50} 
+            count={wellness_score > 70 ? 500 : 300} 
+            factor={wellness_score > 70 ? 3 : 2} 
+            saturation={0.5} 
+            fade 
+            speed={0.5} 
           />
           
-          {/* Vignette for frame focus */}
-          <Vignette
-            offset={0.3}
-            darkness={0.5}
-            blendFunction={BlendFunction.NORMAL}
+          {/* Enhanced garden ground */}
+          <Garden size={10} wellness_score={wellness_score} />
+          
+          {/* Flowers from echoes */}
+          {flowerPositions.map(({ x, z, echo }) => (
+            <ProceduralFlower
+              key={echo.id}
+              position={[x, 0, z]}
+              moodScore={echo.mood_score}
+              emotionTags={echo.emotion_tags}
+              growthStage={echo.growth_stage}
+              seedType={echo.seed_type}
+            />
+          ))}
+          
+          {/* Ambient GPU particles (fireflies/pollen) */}
+          <GPUParticleSystem 
+            count={wellness_score > 70 ? 100 : 60} 
+            color={wellness_score > 70 ? "#FFD700" : "#B8E6F0"} 
           />
           
-          {/* Subtle chromatic aberration for dreamlike quality */}
-          <ChromaticAberration
-            offset={[0.0005, 0.0005]}
-            blendFunction={BlendFunction.NORMAL}
-          />
+          {/* Wellness score display orb */}
+          <WellnessDisplay score={wellness_score} />
           
-          {/* Tone mapping for better color */}
-          <ToneMapping
-            mode={ToneMappingMode.ACES_FILMIC}
-            resolution={256}
-            whitePoint={wellness_score > 70 ? 4.0 : 3.0}
-            middleGrey={0.6}
-            minLuminance={0.01}
-            averageLuminance={1.0}
-            adaptationRate={wellness_score > 70 ? 2.0 : 1.0}
+          {/* Post-processing effects */}
+          <EffectComposer multisampling={4}>
+            {/* Bloom for glowing flowers */}
+            <Bloom
+              intensity={wellness_score > 70 ? 1.5 : 1.0}
+              luminanceThreshold={0.2}
+              luminanceSmoothing={0.9}
+              height={300}
+              opacity={1}
+              blendFunction={BlendFunction.SCREEN}
+            />
+            
+            {/* Depth of field for cinematic focus */}
+            <DepthOfField
+              focusDistance={0.02}
+              focalLength={0.05}
+              bokehScale={wellness_score > 70 ? 3 : 2}
+              height={480}
+            />
+            
+            {/* Vignette for frame focus */}
+            <Vignette
+              offset={0.3}
+              darkness={0.5}
+              blendFunction={BlendFunction.NORMAL}
+            />
+            
+            {/* Subtle chromatic aberration for dreamlike quality */}
+            <ChromaticAberration
+              offset={[0.0005, 0.0005]}
+              blendFunction={BlendFunction.NORMAL}
+            />
+            
+            {/* Tone mapping for better color */}
+            <ToneMapping
+              mode={ToneMappingMode.ACES_FILMIC}
+              resolution={256}
+              whitePoint={wellness_score > 70 ? 4.0 : 3.0}
+              middleGrey={0.6}
+              minLuminance={0.01}
+              averageLuminance={1.0}
+              adaptationRate={wellness_score > 70 ? 2.0 : 1.0}
+            />
+          </EffectComposer>
+          
+          {/* Controls */}
+          <OrbitControls 
+            enablePan={true}
+            enableZoom={true}
+            enableRotate={true}
+            minDistance={4} 
+            maxDistance={20}
+            maxPolarAngle={Math.PI / 2.1}
+            autoRotate={wellness_score > 70}
+            autoRotateSpeed={0.5}
           />
-        </EffectComposer>
-        
-        {/* Controls */}
-        <OrbitControls 
-          enablePan={true}
-          enableZoom={true}
-          enableRotate={true}
-          minDistance={4} 
-          maxDistance={20}
-          maxPolarAngle={Math.PI / 2.1}
-          autoRotate={wellness_score > 70}
-          autoRotateSpeed={0.5}
-        />
+        </Suspense>
       </Canvas>
     </div>
   )
