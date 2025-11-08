@@ -15,9 +15,26 @@ export default function Onboard() {
 
   useEffect(() => {
     if (isSignedIn) {
-      router.push('/garden')
+      // Check if user has completed quiz
+      const checkQuizStatus = async () => {
+        try {
+          const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/preferences/${user?.id}`)
+          const data = await response.json()
+          
+          if (data.preferences && Object.keys(data.preferences).length > 0) {
+            router.push('/garden')
+          } else {
+            router.push('/onboard/quiz')
+          }
+        } catch (error) {
+          // If error, redirect to quiz to be safe
+          router.push('/onboard/quiz')
+        }
+      }
+      
+      checkQuizStatus()
     }
-  }, [isSignedIn, router])
+  }, [isSignedIn, router, user])
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-navy via-navy-light to-moss flex items-center justify-center p-4">

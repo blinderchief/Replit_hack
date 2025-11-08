@@ -44,6 +44,19 @@ export default function RootLayout({
           <meta name="theme-color" content="#A8D5BA" />
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                // Filter out Chrome extension errors
+                window.addEventListener('error', function(e) {
+                  if (e.filename && e.filename.includes('chrome-extension://')) {
+                    e.stopImmediatePropagation();
+                    return false;
+                  }
+                });
+              `
+            }}
+          />
         </head>
         <body className={`${inter.className} ${quicksand.variable}`} suppressHydrationWarning>
           <div className="flex flex-col min-h-screen">

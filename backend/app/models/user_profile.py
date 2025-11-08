@@ -29,6 +29,10 @@ class UserProfile(Base):
     # Preferences
     preferred_activities = Column(JSON, default=list)
     notification_settings = Column(JSON, default=dict)
+    ritual_preferences = Column(JSON, default=dict)  # Quiz responses
+    
+    # Mood Trends
+    mood_trend_direction = Column(String, default="stable")  # "improving", "declining", "stable"
     
     last_active = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -50,6 +54,8 @@ class UserProfile(Base):
             "monthly_reflections": self.monthly_reflections,
             "gratitude_count": self.gratitude_count,
             "preferred_activities": self.preferred_activities or [],
+            "ritual_preferences": self.ritual_preferences or {},
+            "mood_trend_direction": self.mood_trend_direction,
             "last_active": self.last_active.isoformat() if self.last_active else None,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }

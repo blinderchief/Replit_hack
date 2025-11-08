@@ -5,9 +5,18 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { AdvancedGarden } from '@/components/ui/organisms/AdvancedGarden'
+import { InsightGrove } from '@/components/ui/organisms/InsightGrove'
+import { GardenWhisperer } from '@/components/ui/organisms/GardenWhisperer'
+import { DawnWeaves } from '@/components/ui/organisms/DawnWeaves'
+import { WhisperWeave } from '@/components/ui/organisms/WhisperWeave'
+import { ForesightFlorals } from '@/components/ui/organisms/ForesightFlorals'
+import { SensorySymphonies } from '@/components/ui/organisms/SensorySymphonies'
+import { AffirmationWeavings } from '@/components/ui/organisms/AffirmationWeavings'
+import { GestaltGreenhouse } from '@/components/ui/organisms/GestaltGreenhouse'
 import { GlassCard } from '@/components/ui/molecules/GlassCard'
 import { Mic, Send, Sparkles, TrendingUp, Heart, Award, Target, Brain, Activity } from 'lucide-react'
 import { UserButton } from '@clerk/nextjs'
+import { apiFetch } from '@/lib/api'
 
 interface Echo {
   id: number
@@ -18,6 +27,7 @@ interface Echo {
   seed_type: string
   growth_stage: number
   created_at: string
+  timestamp?: string
 }
 
 interface UserProfile {
@@ -39,6 +49,8 @@ interface WellnessInsights {
   suggestion: string
 }
 
+type GardenView = 'garden' | 'insights'
+
 export default function Garden() {
   const { isSignedIn, user } = useUser()
   const router = useRouter()
@@ -49,10 +61,12 @@ export default function Garden() {
   const [wellnessInsights, setWellnessInsights] = useState<WellnessInsights | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isListening, setIsListening] = useState(false)
+  const [currentView, setCurrentView] = useState<GardenView>('garden')
   const [showPlantModal, setShowPlantModal] = useState(false)
   const [notification, setNotification] = useState('')
   const [recentActivities, setRecentActivities] = useState<any[]>([])
   const [activityStats, setActivityStats] = useState<any>(null)
+  const [mostRecentEcho, setMostRecentEcho] = useState<Echo | null>(null)
 
   useEffect(() => {
     if (!isSignedIn) {
@@ -72,42 +86,42 @@ export default function Garden() {
     
     try {
       // Fetch profile
-      const profileRes = await fetch(`http://localhost:8000/api/profile/${user.id}`)
+      const profileRes = await apiFetch(`/api/profile/${user.id}`)
       const profileData = await profileRes.json()
       setProfile(profileData)
       
       // Fetch echoes
-      const echoesRes = await fetch(`http://localhost:8000/api/echoes/${user.id}`)
+      const echoesRes = await apiFetch(`/api/echoes/${user.id}`)
       const echoesData = await echoesRes.json()
       setEchoes(echoesData.echoes || [])
       
       // Fetch activity stats
-      const statsRes = await fetch(`http://localhost:8000/api/activities/stats/${user.id}`)
+      const statsRes = await apiFetch(`/api/activities/stats/${user.id}`)
       const statsData = await statsRes.json()
       setActivityStats(statsData)
       
       // Fetch recent activities (last 5 from each type)
       const activities = []
       try {
-        const breathingRes = await fetch(`http://localhost:8000/api/activities/breathing/${user.id}?limit=3`)
+        const breathingRes = await apiFetch(`/api/activities/breathing/${user.id}?limit=3`)
         const breathingData = await breathingRes.json()
         activities.push(...(breathingData.sessions || []).map((s: any) => ({ ...s, type: 'breathing' })))
       } catch (e) {}
       
       try {
-        const journalRes = await fetch(`http://localhost:8000/api/activities/journal/${user.id}?limit=3`)
+        const journalRes = await apiFetch(`/api/activities/journal/${user.id}?limit=3`)
         const journalData = await journalRes.json()
         activities.push(...(journalData.entries || []).map((e: any) => ({ ...e, type: 'journal' })))
       } catch (e) {}
       
       try {
-        const gratitudeRes = await fetch(`http://localhost:8000/api/activities/gratitude/${user.id}?limit=3`)
+        const gratitudeRes = await apiFetch(`/api/activities/gratitude/${user.id}?limit=3`)
         const gratitudeData = await gratitudeRes.json()
         activities.push(...(gratitudeData.entries || []).map((e: any) => ({ ...e, type: 'gratitude' })))
       } catch (e) {}
       
       try {
-        const groundingRes = await fetch(`http://localhost:8000/api/activities/grounding/${user.id}?limit=3`)
+        const groundingRes = await apiFetch(`/api/activities/grounding/${user.id}?limit=3`)
         const groundingData = await groundingRes.json()
         activities.push(...(groundingData.sessions || []).map((s: any) => ({ ...s, type: 'grounding' })))
       } catch (e) {}
@@ -127,7 +141,7 @@ export default function Garden() {
     setShowPlantModal(false)
 
     try {
-      const response = await fetch('http://localhost:8000/api/echo', {
+      const response = await apiFetch('/api/echo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -146,8 +160,23 @@ export default function Garden() {
       setNotification(`🌱 ${data.response}`)
       setTimeout(() => setNotification(''), 8000)
       
-      // Refresh data
+      // Refresh data and get the newly planted echo
       await fetchUserData()
+      
+      // Set the most recent echo for affirmation trigger
+      // The newest echo will be at the end of the echoes array after refresh
+      if (data.echo) {
+        setMostRecentEcho({
+          id: data.echo.id,
+          content: data.echo.content,
+          mood_score: data.echo.mood_score,
+          emotion_tags: data.echo.emotion_tags,
+          ai_response: data.echo.ai_response || '',
+          seed_type: data.echo.seed_type || '',
+          growth_stage: data.echo.growth_stage || 1,
+          created_at: data.echo.created_at || new Date().toISOString()
+        })
+      }
       
       setTimeout(() => setCurrentResponse(''), 10000)
     } catch (error) {
@@ -529,28 +558,76 @@ export default function Garden() {
           )}
         </motion.div>
 
-        {/* Center - 3D Garden */}
+        {/* Center - Garden & Insights */}
         <motion.div
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
           className="lg:col-span-2"
         >
+          {/* View Toggle Tabs */}
+          <div className="flex gap-2 mb-4">
+            <button
+              onClick={() => setCurrentView('garden')}
+              className={`flex-1 py-3 px-4 rounded-xl font-quicksand font-semibold transition-all flex items-center justify-center gap-2 ${
+                currentView === 'garden'
+                  ? 'bg-gradient-to-r from-moss to-sky text-white shadow-lg'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}
+            >
+              <Sparkles size={18} />
+              3D Garden
+            </button>
+            <button
+              onClick={() => setCurrentView('insights')}
+              className={`flex-1 py-3 px-4 rounded-xl font-quicksand font-semibold transition-all flex items-center justify-center gap-2 ${
+                currentView === 'insights'
+                  ? 'bg-gradient-to-r from-sunset to-purple-500 text-white shadow-lg'
+                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+              }`}
+            >
+              <Brain size={18} />
+              Insight Grove
+            </button>
+          </div>
+
           <GlassCard className="h-[600px] p-0 overflow-hidden">
-            {echoes.length > 0 ? (
-              <AdvancedGarden 
-                echoes={echoes} 
-                wellness_score={profile?.wellness_score || 50}
-              />
-            ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center gap-4">
-                <Sparkles className="text-moss" size={64} />
-                <p className="text-white font-quicksand text-xl">Your garden awaits...</p>
-                <p className="text-white/60 text-center font-quicksand max-w-md">
-                  Plant your first echo to begin your wellness journey. Share your thoughts, feelings, or gratitude.
-                </p>
-              </div>
-            )}
+            <AnimatePresence mode="wait">
+              {currentView === 'garden' ? (
+                <motion.div
+                  key="garden-view"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="w-full h-full"
+                >
+                  {echoes.length > 0 ? (
+                    <AdvancedGarden 
+                      echoes={echoes} 
+                      wellness_score={profile?.wellness_score || 50}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+                      <Sparkles className="text-moss" size={64} />
+                      <p className="text-white font-quicksand text-xl">Your garden awaits...</p>
+                      <p className="text-white/60 text-center font-quicksand max-w-md">
+                        Plant your first echo to begin your wellness journey. Share your thoughts, feelings, or gratitude.
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="insights-view"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  className="w-full h-full overflow-y-auto p-6"
+                >
+                  <InsightGrove echoes={echoes} activities={recentActivities} />
+                </motion.div>
+              )}
+            </AnimatePresence>
           </GlassCard>
 
           {/* Plant Echo Button */}
@@ -711,6 +788,33 @@ export default function Garden() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Garden Whisperer - Proactive AI Support */}
+      {user?.id && <GardenWhisperer userId={user.id} />}
+      
+      {/* Dawn Weaves - Predictive Mood Alerts */}
+      {user?.id && <DawnWeaves userId={user.id} />}
+      
+      {/* Whisper Weave - AI-Coauthored Tales */}
+      {user?.id && <WhisperWeave userId={user.id} />}
+      
+      {/* Foresight Florals - Future-Self Simulations */}
+      {user?.id && <ForesightFlorals userId={user.id} />}
+      
+      {/* Sensory Symphonies - Procedural Soundscapes */}
+      {user?.id && <SensorySymphonies userId={user.id} />}
+      
+      {/* Affirmation Weavings - Vent→Mantra Transformation */}
+      {user?.id && (
+        <AffirmationWeavings 
+          userId={user.id} 
+          mostRecentEcho={mostRecentEcho}
+          onAffirmationComplete={() => setMostRecentEcho(null)}
+        />
+      )}
+      
+      {/* Gestalt Greenhouse - Emotion Alchemy Lab */}
+      {user?.id && <GestaltGreenhouse userId={user.id} />}
     </div>
   )
 }

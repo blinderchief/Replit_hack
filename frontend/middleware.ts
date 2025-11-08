@@ -11,12 +11,7 @@ const isPublicRoute = createRouteMatcher([
 export default clerkMiddleware(async (auth, req) => {
   // Protect all routes except public ones
   if (!isPublicRoute(req)) {
-    try {
-      await auth.protect();
-    } catch (error) {
-      console.error('Auth protection error:', error);
-      return NextResponse.redirect(new URL('/onboard', req.url));
-    }
+    await auth.protect();
   }
   
   return NextResponse.next();
