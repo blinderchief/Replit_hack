@@ -170,7 +170,7 @@ async def check_patterns(
         # Fetch recent echoes (last 7 days)
         seven_days_ago = datetime.utcnow() - timedelta(days=7)
         
-        result = db.execute(
+        result = await db.execute(
             select(Echo)
             .where(and_(
                 Echo.user_id == user_id,
@@ -181,7 +181,7 @@ async def check_patterns(
         echoes = result.scalars().all()
         
         # Fetch user profile
-        profile_result = db.execute(
+        profile_result = await db.execute(
             select(UserProfile).where(UserProfile.user_id == user_id)
         )
         profile = profile_result.scalar_one_or_none()

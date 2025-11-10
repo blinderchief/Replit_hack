@@ -213,7 +213,7 @@ async def simulate_futures(
     """Generate future-self simulations based on what-if scenario"""
     try:
         # Fetch user data
-        result = db.execute(
+        result = await db.execute(
             select(Echo)
             .where(Echo.user_id == request.user_id)
             .order_by(desc(Echo.created_at))
@@ -225,7 +225,7 @@ async def simulate_futures(
         activities = []
         
         # Breathing sessions
-        breathing_result = db.execute(
+        breathing_result = await db.execute(
             select(BreathingSession)
             .where(BreathingSession.user_id == request.user_id)
             .order_by(desc(BreathingSession.completed_at))
@@ -295,7 +295,7 @@ async def get_suggested_scenarios(
     """Get AI-suggested what-if scenarios based on user patterns"""
     try:
         # Fetch recent echoes
-        result = db.execute(
+        result = await db.execute(
             select(Echo)
             .where(Echo.user_id == user_id)
             .order_by(desc(Echo.created_at))

@@ -182,7 +182,7 @@ async def create_tale(
         # Fetch echoes from specified time period
         start_date = datetime.utcnow() - timedelta(days=days)
         
-        result = db.execute(
+        result = await db.execute(
             select(Echo)
             .where(and_(
                 Echo.user_id == user_id,
@@ -250,7 +250,7 @@ async def preview_narrative_data(
     try:
         start_date = datetime.utcnow() - timedelta(days=days)
         
-        result = db.execute(
+        result = await db.execute(
             select(Echo)
             .where(and_(
                 Echo.user_id == user_id,
@@ -457,7 +457,7 @@ async def check_if_needs_affirmation(
     """
     try:
         # Get most recent echo
-        result = db.execute(
+        result = await db.execute(
             select(Echo)
             .where(Echo.user_id == user_id)
             .order_by(desc(Echo.created_at))

@@ -183,7 +183,7 @@ async def predict_challenging_days(
         # Fetch historical echoes (last 60 days minimum for pattern detection)
         sixty_days_ago = datetime.utcnow() - timedelta(days=60)
         
-        result = db.execute(
+        result = await db.execute(
             select(Echo)
             .where(and_(
                 Echo.user_id == user_id,
@@ -202,7 +202,7 @@ async def predict_challenging_days(
             }
         
         # Fetch user profile
-        profile_result = db.execute(
+        profile_result = await db.execute(
             select(UserProfile).where(UserProfile.user_id == user_id)
         )
         profile = profile_result.scalar_one_or_none()
